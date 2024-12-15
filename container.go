@@ -13,8 +13,11 @@ type container struct {
 func (c *container) SetOpen(state bool) {
 	c.open = state
 }
+func (c *container) IsOpen() bool {
+	return c.open
+}
 
-func (c Context) WindowContainer(title string) *container {
+func (c *Context) WindowContainer(title string) *container {
 	title, idStr, _ := strings.Cut(title, idSeparator)
 	var id controlID
 	if len(idStr) > 0 {

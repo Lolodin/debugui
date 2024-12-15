@@ -24,7 +24,14 @@ func (g *Game) writeLog(text string) {
 }
 
 func (g *Game) testWindow(ctx *debugui.Context) {
-	ctx.Window("Demo Window", image.Rect(40, 40, 340, 500), func(res debugui.Response, layout debugui.Layout) {
+	const demoWindow = "Demo Window"
+	if !ctx.WindowContainer(demoWindow).IsOpen() {
+		if ebiten.IsKeyPressed(ebiten.KeyTab) {
+			ctx.WindowContainer(demoWindow).SetOpen(true)
+		}
+
+	}
+	ctx.Window(demoWindow, image.Rect(40, 40, 340, 500), func(res debugui.Response, layout debugui.Layout) {
 		// window info
 		if ctx.Header("Window Info", false) != 0 {
 			ctx.SetLayoutRow([]int{54, -1}, 0)
