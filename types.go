@@ -74,14 +74,6 @@ type command struct {
 	draw drawCommand // type 6
 }
 
-type container struct {
-	layout  Layout
-	headIdx int
-	tailIdx int
-	zIndex  int
-	open    bool
-}
-
 type Layout struct {
 	Rect        image.Rectangle
 	Body        image.Rectangle
