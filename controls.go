@@ -15,6 +15,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/exp/textinput"
 )
 
+// inHoverRoot determines if the hover state is within the current root container by checking the container stack.
 func (c *Context) inHoverRoot() bool {
 	for i := len(c.containerStack) - 1; i >= 0; i-- {
 		if c.containerStack[i] == c.hoverRoot {
@@ -29,6 +30,7 @@ func (c *Context) inHoverRoot() bool {
 	return false
 }
 
+// drawControlFrame renders a frame around a control with styling based on focus, hover state, and provided options.
 func (c *Context) drawControlFrame(id controlID, rect image.Rectangle, colorid int, opt option) {
 	if (opt & optionNoFrame) != 0 {
 		return
@@ -41,6 +43,7 @@ func (c *Context) drawControlFrame(id controlID, rect image.Rectangle, colorid i
 	c.drawFrame(rect, colorid)
 }
 
+// drawControlText renders a given string within a specified rectangle using the provided color and alignment options.
 func (c *Context) drawControlText(str string, rect image.Rectangle, colorid int, opt option) {
 	var pos image.Point
 	tw := textWidth(str)
@@ -57,10 +60,12 @@ func (c *Context) drawControlText(str string, rect image.Rectangle, colorid int,
 	c.popClipRect()
 }
 
+// mouseOver checks if the mouse position is within the given rectangle, the clip rectangle, and the hover root.
 func (c *Context) mouseOver(rect image.Rectangle) bool {
 	return c.mousePos.In(rect) && c.mousePos.In(c.clipRect()) && c.inHoverRoot()
 }
 
+// updateControl updates the state of a UI control based on its ID, bounding rectangle, and interaction options.
 func (c *Context) updateControl(id controlID, rect image.Rectangle, opt option) {
 	if id == 0 {
 		return
@@ -96,18 +101,22 @@ func (c *Context) updateControl(id controlID, rect image.Rectangle, opt option) 
 	}
 }
 
+// Control executes a provided function within a specific context, managing identifier lifecycle for the control element.
 func (c *Context) Control(idStr string, f func(r image.Rectangle) Response) Response {
 	id := c.pushID([]byte(idStr))
 	defer c.popID()
 	return c.control(id, 0, f)
 }
 
+// control manages a UI control within a given layout and executes a callback function with the control's rectangle.
+// It updates the control's state based on the provided id and options, returning the callback's response.
 func (c *Context) control(id controlID, opt option, f func(r image.Rectangle) Response) Response {
 	r := c.layoutNext()
 	c.updateControl(id, r, opt)
 	return f(r)
 }
 
+// Text renders the provided text string within the context, wrapping it within the available width of the layout.
 func (c *Context) Text(text string) {
 	color := c.style.colors[ColorText]
 	c.LayoutColumn(func() {
@@ -141,6 +150,7 @@ func (c *Context) Text(text string) {
 	})
 }
 
+// Label renders a text label within the specified control area using the provided text string.
 func (c *Context) Label(text string) {
 	c.control(0, 0, func(r image.Rectangle) Response {
 		c.drawControlText(text, r, ColorText, 0)
@@ -148,6 +158,7 @@ func (c *Context) Label(text string) {
 	})
 }
 
+// button creates a button control with the given label and id, applies options, and returns the interaction response.
 func (c *Context) button(label string, idStr string, opt option) Response {
 	var id controlID
 	if len(idStr) > 0 {
@@ -172,6 +183,10 @@ func (c *Context) button(label string, idStr string, opt option) Response {
 	})
 }
 
+// Checkbox renders a checkbox with a label and manages its state based on user interaction.
+// The label specifies the text displayed next to the checkbox.
+// The state pointer determines the checkbox's current state and reflects any user updates.
+// Returns a Response indicating the interactions or state changes of the checkbox.
 func (c *Context) Checkbox(label string, state *bool) Response {
 	id := c.pushID(ptrToBytes(unsafe.Pointer(state)))
 	defer c.popID()
@@ -196,6 +211,7 @@ func (c *Context) Checkbox(label string, state *bool) Response {
 	})
 }
 
+// textField retrieves or initializes a text input field associated with the given controlID.
 func (c *Context) textField(id controlID) *textinput.Field {
 	if id == 0 {
 		return nil
@@ -209,6 +225,10 @@ func (c *Context) textField(id controlID) *textinput.Field {
 	return c.textFields[id]
 }
 
+// textBoxRaw manages low-level text box rendering and behavior, handling user interaction, keyboard input, and focus state.
+// Handles text input, editing, focus, key presses (backspace/return), and updates the text buffer if changes occur.
+// Draws the text box and its contents based on the current state and specified options.
+// Returns a Response indicating whether the text has changed or the textbox was submitted.
 func (c *Context) textBoxRaw(buf *string, id controlID, opt option) Response {
 	return c.control(id, opt|optionHoldFocus, func(r image.Rectangle) Response {
 		var res Response
@@ -272,6 +292,7 @@ func (c *Context) textBoxRaw(buf *string, id controlID, opt option) Response {
 	})
 }
 
+// numberTextBox renders an editable numeric text box tied to a float64 value and handles input and focus behavior.
 func (c *Context) numberTextBox(value *float64, id controlID) bool {
 	if c.mousePressed == mouseLeft && (c.keyDown&keyShift) != 0 &&
 		c.hover == id {
@@ -293,6 +314,9 @@ func (c *Context) numberTextBox(value *float64, id controlID) bool {
 	return false
 }
 
+// textBox updates the text input box based on a provided string buffer and options, returning a Response status.
+// It uniquely identifies the text box by generating an ID from the buffer's memory address.
+// The method interacts with textBoxRaw to handle the input box rendering and behavior using the computed ID and options.
 func (c *Context) textBox(buf *string, opt option) Response {
 	id := c.pushID(ptrToBytes(unsafe.Pointer(buf)))
 	defer c.popID()
@@ -300,10 +324,15 @@ func (c *Context) textBox(buf *string, opt option) Response {
 	return c.textBoxRaw(buf, id, opt)
 }
 
+// formatNumber formats a floating-point number `v` to a string with a specified number of decimal places `digits`.
 func formatNumber(v float64, digits int) string {
 	return fmt.Sprintf("%."+strconv.Itoa(digits)+"f", v)
 }
 
+// slider is a method for rendering and handling a slider control for inputting float values within a specified range.
+// The slider supports optional configurations such as step size for increments and the number of digits to display.
+// It updates the passed value pointer, clamping it within the provided low and high bounds during interaction.
+// Returns a Response indicating changes or interactions with the slider.
 func (c *Context) slider(value *float64, low, high, step float64, digits int, opt option) Response {
 	last := *value
 	v := last
@@ -347,6 +376,8 @@ func (c *Context) slider(value *float64, low, high, step float64, digits int, op
 	})
 }
 
+// number creates and handles a numeric input control with specified `step` and `digits`, updating the `value`.
+// It uses `opt` for additional configuration and returns a `Response` indicating the control state.
 func (c *Context) number(value *float64, step float64, digits int, opt option) Response {
 	id := c.pushID(ptrToBytes(unsafe.Pointer(value)))
 	defer c.popID()
@@ -379,6 +410,7 @@ func (c *Context) number(value *float64, step float64, digits int, opt option) R
 	})
 }
 
+// header creates and manages a header control with an optional tree node state, label, and ID. Returns a Response.
 func (c *Context) header(label string, idStr string, istreenode bool, opt option) Response {
 	var id controlID
 	if len(idStr) > 0 {
@@ -452,6 +484,7 @@ func (c *Context) header(label string, idStr string, istreenode bool, opt option
 	})
 }
 
+// treeNode is a helper method to handle tree node operations with given label, id, options, and response function.
 func (c *Context) treeNode(label string, idStr string, opt option, f func(res Response)) {
 	res := c.header(label, idStr, true, opt)
 	if res&ResponseActive == 0 {
@@ -464,7 +497,7 @@ func (c *Context) treeNode(label string, idStr string, opt option, f func(res Re
 	f(res)
 }
 
-// x = x, y = y, w = w, h = h
+// scrollbarVertical handles rendering and interaction for a vertical scrollbar within a specified container.
 func (c *Context) scrollbarVertical(cnt *container, b image.Rectangle, cs image.Point) {
 	maxscroll := cs.Y - b.Dy()
 	if maxscroll > 0 && b.Dy() > 0 {
@@ -499,7 +532,11 @@ func (c *Context) scrollbarVertical(cnt *container, b image.Rectangle, cs image.
 	}
 }
 
-// x = y, y = x, w = h, h = w
+// scrollbarHorizontal draws and handles the horizontal scrollbar for a given container's layout.
+// It calculates the scrollbar's position, dimensions, and movement based on container dimensions and input events.
+// It updates the container's horizontal scroll offset and clamps it within valid limits.
+// The scrollbar is visually represented with a base track and a movable thumb.
+// If the mouse is over the container, it sets the container as the current scroll target.
 func (c *Context) scrollbarHorizontal(cnt *container, b image.Rectangle, cs image.Point) {
 	maxscroll := cs.X - b.Dx()
 	if maxscroll > 0 && b.Dx() > 0 {
@@ -534,7 +571,7 @@ func (c *Context) scrollbarHorizontal(cnt *container, b image.Rectangle, cs imag
 	}
 }
 
-// if `swap` is true, X = Y, Y = X, W = H, H = W
+// scrollbar renders a horizontal or vertical scrollbar based on the swap parameter and container's layout dimensions.
 func (c *Context) scrollbar(cnt *container, b image.Rectangle, cs image.Point, swap bool) {
 	if swap {
 		c.scrollbarHorizontal(cnt, b, cs)
@@ -543,6 +580,7 @@ func (c *Context) scrollbar(cnt *container, b image.Rectangle, cs image.Point, s
 	}
 }
 
+// scrollbars adjusts the body rectangle dimensions to account for scrollbars and handles their creation for the container.
 func (c *Context) scrollbars(cnt *container, body image.Rectangle) image.Rectangle {
 	sz := c.style.scrollbarSize
 	cs := cnt.layout.ContentSize
@@ -564,6 +602,7 @@ func (c *Context) scrollbars(cnt *container, body image.Rectangle) image.Rectang
 	return body
 }
 
+// pushContainerBody adjusts the layout and scroll behavior of a container based on the given body rectangle and options.
 func (c *Context) pushContainerBody(cnt *container, body image.Rectangle, opt option) {
 	if (^opt & optionNoScroll) != 0 {
 		body = c.scrollbars(cnt, body)
@@ -572,6 +611,11 @@ func (c *Context) pushContainerBody(cnt *container, body image.Rectangle, opt op
 	cnt.layout.Body = body
 }
 
+// window creates and manages a container window with a title, optional close and resize functionality, and customizable layout.
+// If idStr is provided, it uniquely identifies the window. Otherwise, the title is used for identification.
+// The rect parameter defines the initial size and position of the window.
+// opt specifies additional options such as disabling the frame, resize, or title, and enabling popup or auto-sizing functionality.
+// f is a callback function that provides the response and layout details of the window to the caller.
 func (c *Context) window(title string, idStr string, rect image.Rectangle, opt option, f func(res Response, layout Layout)) {
 	var id controlID
 	if len(idStr) > 0 {
@@ -689,6 +733,7 @@ func (c *Context) window(title string, idStr string, rect image.Rectangle, opt o
 	f(ResponseActive, c.currentContainer().layout)
 }
 
+// OpenPopup opens a popup with the specified name and positions it at the current mouse cursor location.
 func (c *Context) OpenPopup(name string) {
 	cnt := c.Container(name)
 	// set as hover root so popup isn't closed in begin_window_ex()
@@ -700,11 +745,13 @@ func (c *Context) OpenPopup(name string) {
 	c.bringToFront(cnt)
 }
 
+// Popup creates a modal popup window with the given name and callback function for rendering the content.
 func (c *Context) Popup(name string, f func(res Response, layout Layout)) {
 	opt := optionPopup | optionAutoSize | optionNoResize | optionNoScroll | optionNoTitle | optionClosed
 	c.window(name, "", image.Rectangle{}, opt, f)
 }
 
+// panel sets up and manages a UI panel with the given layout, applying options and rendering content through a callback.
 func (c *Context) panel(name string, opt option, f func(layout Layout)) {
 	id := c.pushID([]byte(name))
 	defer c.popID()
@@ -723,4 +770,11 @@ func (c *Context) panel(name string, opt option, f func(layout Layout)) {
 	defer c.popClipRect()
 
 	f(c.currentContainer().layout)
+}
+
+// placeholder выделяет пустое пространство в layout без отрисовки.
+func (c *Context) Placeholder() {
+	c.control(0, 0, func(r image.Rectangle) Response {
+		return 0
+	})
 }
